@@ -7,14 +7,14 @@ const archiver = require('archiver');
 const Minio = require('minio');
 const axios = require('axios');
 
-// MinIO Configuration
 const minioClient = new Minio.Client({
   endPoint: 'console-app-minio.8cwleg.easypanel.host',
-  port: 443,
+  port: 9000, // Use the API port for MinIO
   useSSL: true,
   accessKey: 'CmeGvV4GULg5YMmb2DQy',
   secretKey: '2PRFrdP9V7UYm4GoVyG2kZoAa0zbtDwJUdcrFu3O'
 });
+
 
 // Initialize Express
 const app = express();
