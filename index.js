@@ -52,9 +52,15 @@ app.get('/scrape', async (req, res) => {
       fs.mkdirSync(folderPath);
     }
 
-    // Save the HTML content
+    // Save the HTML content with the original directory structure
+    const parsedUrl = new URL(targetUrl);
+    const htmlPath = path.join(folderPath, parsedUrl.hostname, parsedUrl.pathname, 'index.html');
+    const htmlDir = path.dirname(htmlPath);
+    if (!fs.existsSync(htmlDir)) {
+      fs.mkdirSync(htmlDir, { recursive: true });
+    }
     const htmlContent = await page.content();
-    fs.writeFileSync(path.join(folderPath, 'index.html'), htmlContent);
+    fs.writeFileSync(htmlPath, htmlContent);
 
     // Convert Set to Array for processing
     const allUrls = Array.from(urls);
@@ -64,16 +70,18 @@ app.get('/scrape', async (req, res) => {
       try {
         const absoluteUrl = new URL(fileUrl, targetUrl).href;
         const response = await axios.get(absoluteUrl, { responseType: 'arraybuffer' });
+
         const urlPath = new URL(absoluteUrl).pathname;
         const fileName = path.basename(urlPath);
         const fileDir = path.dirname(urlPath);
 
-        // Create directories if they don't exist
-        const fullDirPath = path.join(folderPath, fileDir);
+        // Create the folder structure that mirrors the original website's structure
+        const fullDirPath = path.join(folderPath, parsedUrl.hostname, fileDir);
         if (!fs.existsSync(fullDirPath)) {
           fs.mkdirSync(fullDirPath, { recursive: true });
         }
 
+        // Save the file within the correct directory
         fs.writeFileSync(path.join(fullDirPath, fileName), response.data);
       } catch (error) {
         console.error(`Failed to download: ${fileUrl}`, error);
