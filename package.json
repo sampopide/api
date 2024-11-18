@@ -1,0 +1,10 @@
+{
+  "dependencies": {
+    "archiver": "^7.0.1",
+    "aws-sdk": "^2.1692.0",
+    "axios": "^1.7.7",
+    "express": "^4.21.1",
+    "minio": "^8.0.2",
+    "puppeteer-core": "^23.8.0"
+  }
+}
