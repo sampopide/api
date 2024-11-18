@@ -44,7 +44,7 @@ app.get('/scrape', async (req, res) => {
     });
 
     await page.goto(targetUrl, { waitUntil: 'networkidle2' });
-    await page.waitForTimeout(5000); // Extra wait time for dynamic resources
+    await new Promise(resolve => setTimeout(resolve, 5000)); // Wait for 5 seconds for dynamic resources to load
 
     // Create a folder to store the scraped content
     const folderPath = path.join(__dirname, 'scraped_site');
