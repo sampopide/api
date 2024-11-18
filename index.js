@@ -4,17 +4,15 @@ const puppeteer = require('puppeteer-core');
 const fs = require('fs');
 const path = require('path');
 const archiver = require('archiver');
-const Minio = require('minio');
+const ftp = require('basic-ftp');
 const axios = require('axios');
 
-const minioClient = new Minio.Client({
-  endPoint: 'console-app-minio.8cwleg.easypanel.host',
-  port: 9000, // Use the API port for MinIO
-  useSSL: true,
-  accessKey: 'CmeGvV4GULg5YMmb2DQy',
-  secretKey: '2PRFrdP9V7UYm4GoVyG2kZoAa0zbtDwJUdcrFu3O'
-});
-
+// FTP Configuration
+const ftpConfig = {
+  host: '148.251.195.32',
+  user: 'sametxxxxx',
+  password: 'P,,8T?sTmTeN'
+};
 
 // Initialize Express
 const app = express();
@@ -68,16 +66,18 @@ app.get('/scrape', async (req, res) => {
     const archive = archiver('zip', { zlib: { level: 9 } });
 
     output.on('close', async () => {
-      // Upload ZIP to MinIO
-      const zipFileName = `scraped_site_${Date.now()}.zip`;
+      // Upload ZIP to FTP server
+      const client = new ftp.Client();
+      client.ftp.verbose = true;
       try {
-        await minioClient.fPutObject('landing', zipFileName, zipPath, {
-          'Content-Type': 'application/zip'
-        });
-        res.json({ message: 'Scraping and upload successful!', minioUrl: `https://console-app-minio.8cwleg.easypanel.host/landing/${zipFileName}` });
+        await client.access(ftpConfig);
+        await client.uploadFrom(zipPath, `scraped_site_${Date.now()}.zip`);
+        res.json({ message: 'Scraping and upload successful!', ftpUrl: `ftp://${ftpConfig.host}/scraped_site_${Date.now()}.zip` });
       } catch (err) {
-        console.error('Error uploading to MinIO:', err);
-        res.status(500).send('Failed to upload to MinIO');
+        console.error('Error uploading to FTP:', err);
+        res.status(500).send('Failed to upload to FTP');
+      } finally {
+        client.close();
       }
 
       // Clean up files
