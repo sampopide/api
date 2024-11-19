@@ -35,6 +35,9 @@ app.get('/scrape', async (req, res) => {
 
     // Capture all network requests for resources
     const urls = new Set();
+    const internalLinks = new Set();
+    const parsedUrl = new URL(targetUrl);
+
     page.on('requestfinished', (request) => {
       const url = request.url();
       const resourceType = request.resourceType();
@@ -46,6 +49,18 @@ app.get('/scrape', async (req, res) => {
     await page.goto(targetUrl, { waitUntil: 'networkidle2' });
     await new Promise(resolve => setTimeout(resolve, 5000)); // Wait for 5 seconds for dynamic resources to load
 
+    // Extract all internal links from the page
+    const links = await page.evaluate(() => {
+      return Array.from(document.querySelectorAll('a[href]')).map(anchor => anchor.href);
+    });
+
+    links.forEach(link => {
+      const linkUrl = new URL(link, targetUrl);
+      if (linkUrl.hostname === parsedUrl.hostname) {
+        internalLinks.add(linkUrl.href);
+      }
+    });
+
     // Create a folder to store the scraped content
     const folderPath = path.join(__dirname, 'scraped_site');
     if (!fs.existsSync(folderPath)) {
@@ -53,14 +68,20 @@ app.get('/scrape', async (req, res) => {
     }
 
     // Save the HTML content with the original directory structure
-    const parsedUrl = new URL(targetUrl);
-    const htmlPath = path.join(folderPath, parsedUrl.hostname, parsedUrl.pathname, 'index.html');
-    const htmlDir = path.dirname(htmlPath);
-    if (!fs.existsSync(htmlDir)) {
-      fs.mkdirSync(htmlDir, { recursive: true });
-    }
-    const htmlContent = await page.content();
-    fs.writeFileSync(htmlPath, htmlContent);
+    const saveHtmlContent = async (url) => {
+      const pageUrl = new URL(url);
+      const htmlPath = path.join(folderPath, pageUrl.hostname, pageUrl.pathname, 'index.html');
+      const htmlDir = path.dirname(htmlPath);
+      if (!fs.existsSync(htmlDir)) {
+        fs.mkdirSync(htmlDir, { recursive: true });
+      }
+      await page.goto(url, { waitUntil: 'networkidle2' });
+      const htmlContent = await page.content();
+      fs.writeFileSync(htmlPath, htmlContent);
+    };
+
+    // Save the main page content
+    await saveHtmlContent(targetUrl);
 
     // Convert Set to Array for processing
     const allUrls = Array.from(urls);
@@ -87,6 +108,19 @@ app.get('/scrape', async (req, res) => {
         console.error(`Failed to download: ${fileUrl}`, error);
       }
     }
+
+    // Save all internal pages
+    for (const link of internalLinks) {
+      try {
+        await saveHtmlContent(link);
+      } catch (error) {
+        console.error(`Failed to save internal page: ${link}`, error);
+      }
+    }
+
+    // Save internal links to a file
+    const linksPath = path.join(folderPath, parsedUrl.hostname, 'internal_links.txt');
+    fs.writeFileSync(linksPath, Array.from(internalLinks).join('\n'));
 
     // Create a ZIP file of the folder
     const zipPath = path.join(__dirname, 'scraped_site.zip');
